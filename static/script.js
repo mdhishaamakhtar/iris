@@ -301,13 +301,6 @@ class PathFinderUI {
     document.getElementById("graphLoader").classList.add("hidden");
     document.getElementById("searchProgress").classList.add("hidden");
     document.getElementById("graph").classList.remove("hidden");
-
-    // Small delay to ensure SVG is rendered
-    setTimeout(() => {
-      if (graph.simulation) {
-        graph.simulation.alpha(0.3).restart();
-      }
-    }, 100);
   }
 
   hidePathDisplay() {
@@ -563,7 +556,6 @@ class PathFinderUI {
       index: index,
       isStart: index === 0,
       isEnd: index === path.length - 1,
-      textWidth: page.length * 8 + 20, // Estimate text width for collision detection
     }));
 
     const links = [];
@@ -583,12 +575,23 @@ class PathFinderUI {
 
     svg.selectAll("*").remove();
 
-    // Get actual container dimensions
+    // Get actual container dimensions (padding varies by breakpoint)
     const container = document.getElementById("graphContainer");
     const containerRect = container.getBoundingClientRect();
-    const width = containerRect.width - 64; // Account for 32px left + 32px right padding
+    const containerStyle = getComputedStyle(container);
+    const padH =
+      parseFloat(containerStyle.paddingLeft) +
+      parseFloat(containerStyle.paddingRight);
+    const width = containerRect.width - padH;
     const nodeCount = nodes.length;
-    const calculatedHeight = Math.max(400, Math.min(600, nodeCount * 60));
+
+    // Narrow viewports read the path top-to-bottom instead of left-to-right
+    const vertical = width < 520;
+    const VERTICAL_SPACING = 92;
+    const calculatedHeight = vertical
+      ? Math.max(380, Math.min(760, 112 + (nodeCount - 1) * VERTICAL_SPACING))
+      : Math.max(400, Math.min(600, nodeCount * 60));
+    graph.vertical = vertical;
 
     // Update graph object
     graph.width = width;
@@ -603,6 +606,87 @@ class PathFinderUI {
       .attr("aria-label", `Path visualization: ${pathDescription}`)
       .style("display", "block");
 
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    // Measure label text with the real font instead of estimating by character count
+    const measureCtx = document.createElement("canvas").getContext("2d");
+    measureCtx.font = "500 12px 'JetBrains Mono', monospace";
+
+    const ELLIPSIS = "…";
+    const measure = (s) => measureCtx.measureText(s).width;
+    const trimToBudget = (s, budget) => {
+      if (measure(s) <= budget) return s;
+      let t = s;
+      while (t.length > 1 && measure(t + ELLIPSIS) > budget) {
+        t = t.slice(0, -1);
+      }
+      return t.trimEnd() + ELLIPSIS;
+    };
+    // Wrap a title onto at most two lines, trimming only when unavoidable
+    const buildLabelLines = (name, budget) => {
+      if (measure(name) <= budget) return [name];
+      const words = name.split(" ");
+      if (words.length === 1) return [trimToBudget(name, budget)];
+      let line1 = "";
+      let i = 0;
+      while (i < words.length) {
+        if (!line1) {
+          line1 = words[i];
+          i++;
+        } else if (measure(line1 + " " + words[i]) <= budget) {
+          line1 += " " + words[i];
+          i++;
+        } else {
+          break;
+        }
+      }
+      const rest = words.slice(i).join(" ");
+      if (!rest) return [trimToBudget(line1, budget)];
+      return [trimToBudget(line1, budget), trimToBudget(rest, budget)];
+    };
+
+    const seedPadX = 70;
+    const spanLimit =
+      nodeCount > 1 ? (width - seedPadX * 2) / (nodeCount - 1) : width;
+    const lineBudget = vertical
+      ? width - 56
+      : Math.min(170, Math.max(96, spanLimit - 24));
+
+    nodes.forEach((d) => {
+      d.lines = buildLabelLines(d.name, lineBudget);
+      d.labelWidth = Math.max(...d.lines.map(measure));
+      d.boxWidth = d.labelWidth + 24;
+      d.boxHeight = 26 + (d.lines.length - 1) * 14;
+      d.collideR = vertical ? 34 : Math.max(30, d.boxWidth / 2 + 8);
+    });
+
+    // Seed positions in path order so the chain renders in reading
+    // direction instead of untangling from a random cluster
+    if (vertical) {
+      const seedPadTop = 56;
+      const seedPadBottom = 56;
+      nodes.forEach((d, i) => {
+        const t = nodeCount === 1 ? 0.5 : i / (nodeCount - 1);
+        d.seedX = width / 2 + (i % 2 === 0 ? -1 : 1) * 12;
+        d.seedY =
+          seedPadTop + t * (calculatedHeight - seedPadTop - seedPadBottom);
+        d.x = d.seedX;
+        d.y = d.seedY;
+      });
+    } else {
+      nodes.forEach((d, i) => {
+        const t = nodeCount === 1 ? 0.5 : i / (nodeCount - 1);
+        d.seedX = seedPadX + t * (width - seedPadX * 2);
+        d.seedY =
+          calculatedHeight / 2 +
+          (i % 2 === 0 ? -1 : 1) * Math.min(32, calculatedHeight * 0.07);
+        d.x = d.seedX;
+        d.y = d.seedY;
+      });
+    }
+
     // Add arrow marker for directed edges — color read from CSS token at render time
     const accentBlue =
       getComputedStyle(document.documentElement)
@@ -613,10 +697,11 @@ class PathFinderUI {
       .append("marker")
       .attr("id", "arrowhead")
       .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 5)
+      .attr("refX", 9)
       .attr("refY", 0)
-      .attr("markerWidth", 6)
-      .attr("markerHeight", 6)
+      .attr("markerWidth", 11)
+      .attr("markerHeight", 11)
+      .attr("markerUnits", "userSpaceOnUse")
       .attr("orient", "auto")
       .append("path")
       .attr("d", "M0,-5L10,0L0,5")
@@ -625,16 +710,15 @@ class PathFinderUI {
     // Create main group
     const g = svg.append("g");
 
-    // Create links as paths for better arrow control
-    const link = g
-      .append("g")
-      .attr("class", "links")
-      .selectAll("path")
+    // Create links; the arrowhead marker is attached when each edge
+    // finishes its draw-in (immediately under reduced motion)
+    const linkGroup = g.append("g").attr("class", "links");
+    const link = linkGroup
+      .selectAll("path.link")
       .data(links)
       .enter()
       .append("path")
-      .attr("class", (d) => (d.isPath ? "link path" : "link"))
-      .attr("marker-mid", "url(#arrowhead)");
+      .attr("class", (d) => (d.isPath ? "link path" : "link"));
 
     // Create nodes
     let isDragging = false;
@@ -661,7 +745,7 @@ class PathFinderUI {
         if (isTouch) return;
         this.tooltip
           .style("opacity", 1)
-          .text(`${d.name} — Step ${d.index + 1}`)
+          .text(`${d.name} — Step ${d.index + 1} of ${nodes.length}`)
           .style("left", event.pageX + 10 + "px")
           .style("top", event.pageY - 10 + "px");
       })
@@ -741,7 +825,7 @@ class PathFinderUI {
       .attr("rx", 4)
       .attr("ry", 4);
 
-    // Create labels
+    // Create labels (up to two lines, full title preserved when it fits)
     const label = g
       .append("g")
       .attr("class", "labels")
@@ -749,15 +833,33 @@ class PathFinderUI {
       .data(nodes)
       .enter()
       .append("text")
-      .attr("class", "node-label")
-      .attr("dy", 35);
+      .attr("class", "node-label");
 
-    // Calculate dynamic link distance based on text lengths
-    const maxTextWidth = Math.max(...nodes.map((d) => d.textWidth));
-    const dynamicDistance = Math.max(80, maxTextWidth + 30);
+    label.each(function (d) {
+      const text = d3.select(this);
+      d.lines.forEach((line, li) => {
+        text
+          .append("tspan")
+          .attr("x", 0)
+          .attr("dy", li === 0 ? 0 : 14)
+          .text(line);
+      });
+    });
+
+    labelBg
+      .attr("width", (d) => d.boxWidth)
+      .attr("height", (d) => d.boxHeight);
+
+    // Link distance: span the available axis evenly
+    const maxBoxWidth = Math.max(...nodes.map((d) => d.boxWidth));
+    const maxBoxHeight = Math.max(...nodes.map((d) => d.boxHeight));
+    const dynamicDistance = vertical
+      ? Math.max(80, maxBoxHeight + 52)
+      : Math.max(100, Math.min(maxBoxWidth + 36, Math.max(100, spanLimit)));
     graph.dynamicDistance = dynamicDistance;
 
-    // Very tight physics simulation with text-aware spacing
+    // Positional forces hold the path in reading order; collision keeps
+    // labels clear; the chain settles quickly instead of drifting
     const simulation = d3
       .forceSimulation(nodes)
       .force(
@@ -766,75 +868,125 @@ class PathFinderUI {
           .forceLink(links)
           .id((d) => d.id)
           .distance(() => graph.dynamicDistance)
-          .strength(2.0),
+          .strength(1),
       )
-      .force("charge", d3.forceManyBody().strength(-200).distanceMax(150))
-      .force("center", d3.forceCenter(graph.width / 2, graph.height / 2))
+      .force(
+        "charge",
+        d3
+          .forceManyBody()
+          .strength(vertical ? -160 : -240)
+          .distanceMax(Math.max(220, dynamicDistance * 1.5)),
+      )
+      .force(
+        "x",
+        d3.forceX((d) => d.seedX).strength(vertical ? 0.16 : 0.22),
+      )
+      .force(
+        "y",
+        d3.forceY((d) => d.seedY).strength(vertical ? 0.22 : 0.1),
+      )
       .force(
         "collision",
         d3
           .forceCollide()
-          .radius((d) => Math.max(30, d.textWidth / 2 + 10))
-          .strength(1.0),
+          .radius((d) => d.collideR)
+          .strength(0.8),
       )
-      .alphaDecay(0.01)
-      .velocityDecay(0.6);
+      .alphaDecay(0.03)
+      .velocityDecay(0.45);
 
-    // Function to truncate text based on graph density
-    function getTruncatedText(name, distance) {
-      const maxLength = Math.max(8, Math.floor(distance / 8));
-      if (name.length <= maxLength) return name;
-      return name.substring(0, maxLength - 3) + "...";
+    // Straight edge from circle boundary to circle boundary so the
+    // arrowhead lands exactly on the target's edge
+    const NODE_R = 14;
+    function edgePath(d) {
+      const dx = d.target.x - d.source.x;
+      const dy = d.target.y - d.source.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const ux = dx / dist;
+      const uy = dy / dist;
+      const sOff = NODE_R + 3;
+      const tOff = NODE_R + 4;
+      return `M${d.source.x + ux * sOff},${d.source.y + uy * sOff} L${d.target.x - ux * tOff},${d.target.y - uy * tOff}`;
     }
 
-    // Update positions on each tick with proper edge constraints
-    simulation.on("tick", () => {
-      const padding = 30;
+    const updatePositions = () => {
+      const padX = Math.min(
+        graph.width / 2 - 4,
+        Math.max(28, maxBoxWidth / 2 + 6),
+      );
+      const padTop = 28;
+      const padBottom = 34 + maxBoxHeight + 8; // room for labels below nodes
 
-      // Constrain node positions and update coordinates
       nodes.forEach((d) => {
-        d.x = Math.max(padding, Math.min(graph.width - padding, d.x));
-        d.y = Math.max(padding, Math.min(graph.height - padding, d.y));
-        // Update truncated text based on current spacing
-        d.displayText = getTruncatedText(d.name, graph.dynamicDistance);
+        d.x = Math.max(padX, Math.min(graph.width - padX, d.x));
+        d.y = Math.max(padTop, Math.min(graph.height - padBottom, d.y));
       });
 
-      link.attr("d", (d) => {
-        const midX = (d.source.x + d.target.x) / 2;
-        const midY = (d.source.y + d.target.y) / 2;
-        return `M${d.source.x},${d.source.y} L${midX},${midY} L${d.target.x},${d.target.y}`;
-      });
+      link.attr("d", edgePath);
 
       node.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
 
-      // Update labels with dynamic text
+      label.attr("transform", (d) => `translate(${d.x},${d.y + 34})`);
+
+      labelBg
+        .attr("x", (d) => d.x - d.boxWidth / 2)
+        .attr("y", (d) => d.y + 18);
+    };
+
+    simulation.on("tick", updatePositions);
+
+    // Settle the layout synchronously before first paint so the graph
+    // appears in its final arrangement; physics stays live for dragging.
+    // simulation.tick(n) advances state without firing tick events,
+    // so positions are applied once manually afterwards.
+    simulation.stop();
+    simulation.tick(220);
+    updatePositions();
+
+    if (prefersReducedMotion) {
+      link.attr("marker-end", "url(#arrowhead)");
+    } else {
+      // Reveal in path order over the settled layout: each node pops,
+      // then its outgoing edge draws toward the next node
+      node
+        .attr("r", 0)
+        .transition()
+        .delay((d) => d.index * 60)
+        .duration(220)
+        .ease(d3.easeCubicOut)
+        .attr("r", NODE_R);
+
       label
-        .attr("x", (d) => d.x)
-        .attr("y", (d) => d.y)
-        .text((d) => d.displayText);
+        .style("opacity", 0)
+        .transition()
+        .delay((d) => d.index * 60 + 40)
+        .duration(180)
+        .style("opacity", 1);
+      labelBg
+        .style("opacity", 0)
+        .transition()
+        .delay((d) => d.index * 60 + 40)
+        .duration(180)
+        .style("opacity", 1);
 
-      // Update label backgrounds with generous padding
-      labelBg.each(function (d) {
-        const textLength = d.displayText.length * 7;
-        const horizontalPadding = 16;
-        const verticalPadding = 6;
-        const boxWidth = textLength + horizontalPadding * 2;
-        const boxHeight = 16 + verticalPadding * 2;
+      link.each(function (d) {
+        const len = this.getTotalLength();
         d3.select(this)
-          .attr("x", d.x - boxWidth / 2)
-          .attr("y", d.y + 35 - boxHeight / 2 - 4)
-          .attr("width", boxWidth)
-          .attr("height", boxHeight);
+          .attr("stroke-dasharray", len)
+          .attr("stroke-dashoffset", len)
+          .transition()
+          .delay(d.index * 60 + 100)
+          .duration(180)
+          .ease(d3.easeCubicOut)
+          .attr("stroke-dashoffset", 0)
+          .on("end", function () {
+            d3.select(this)
+              .attr("stroke-dasharray", null)
+              .attr("stroke-dashoffset", null)
+              .attr("marker-end", "url(#arrowhead)");
+          });
       });
-    });
-
-    // Start with lower alpha for smoother initial animation
-    simulation.alpha(0.5).restart();
-
-    // Let simulation settle naturally
-    setTimeout(() => {
-      simulation.alphaTarget(0);
-    }, 1500);
+    }
 
     graph.simulation = simulation;
   }
@@ -985,17 +1137,31 @@ function debounce(fn, wait) {
   };
 }
 
-// Resize without re-rendering: only update svg size and forces
+// Resize: re-layout fully when the orientation flips (phone ↔ desktop),
+// otherwise just update svg size, seeds, and forces in place
 PathFinderUI.prototype.resizeGraph = function () {
   if (!graph || !graph.svg || !graph.simulation) return;
 
   const container = document.getElementById("graphContainer");
   if (!container) return;
   const { width: containerWidth } = container.getBoundingClientRect();
+  const containerStyle = getComputedStyle(container);
+  const padH =
+    parseFloat(containerStyle.paddingLeft) +
+    parseFloat(containerStyle.paddingRight);
+  const newWidth = containerWidth - padH;
 
-  const newWidth = containerWidth - 64; // 32px left + 32px right padding
-  const nodeCount = graph.simulation.nodes().length || 0;
-  const newHeight = Math.max(400, Math.min(600, nodeCount * 60));
+  const newVertical = newWidth < 520;
+  if (newVertical !== graph.vertical) {
+    this.rerenderFromState();
+    return;
+  }
+
+  const nodes = graph.simulation.nodes();
+  const nodeCount = nodes.length || 0;
+  const newHeight = graph.vertical
+    ? Math.max(380, Math.min(760, 112 + (nodeCount - 1) * 92))
+    : Math.max(400, Math.min(600, nodeCount * 60));
 
   // Update graph dimensions
   graph.width = newWidth;
@@ -1008,18 +1174,34 @@ PathFinderUI.prototype.resizeGraph = function () {
     .attr("viewBox", `0 0 ${graph.width} ${graph.height}`)
     .style("display", "block");
 
-  // Update forces to reflect new center and spacing
-  const nodes = graph.simulation.nodes();
-  const maxTextWidth = Math.max(...nodes.map((d) => d.textWidth || 0), 0);
-  graph.dynamicDistance = Math.max(80, maxTextWidth + 30);
-
-  const linkForce = graph.simulation.force("link");
-  if (linkForce && typeof linkForce.distance === "function") {
-    linkForce.distance(() => graph.dynamicDistance);
+  if (graph.vertical) {
+    nodes.forEach((d, i) => {
+      d.seedX = newWidth / 2 + (i % 2 === 0 ? -1 : 1) * 12;
+    });
+  } else {
+    const seedPadX = 70;
+    const maxBoxWidth = Math.max(...nodes.map((d) => d.boxWidth || 0), 0);
+    const spanLimit =
+      nodeCount > 1 ? (newWidth - seedPadX * 2) / (nodeCount - 1) : newWidth;
+    graph.dynamicDistance = Math.max(
+      100,
+      Math.min(maxBoxWidth + 36, Math.max(100, spanLimit)),
+    );
+    nodes.forEach((d, i) => {
+      const t = nodeCount === 1 ? 0.5 : i / (nodeCount - 1);
+      d.seedX = seedPadX + t * (newWidth - seedPadX * 2);
+    });
+    const linkForce = graph.simulation.force("link");
+    if (linkForce && typeof linkForce.distance === "function") {
+      linkForce.distance(() => graph.dynamicDistance);
+    }
   }
 
   graph.simulation
-    .force("center", d3.forceCenter(graph.width / 2, graph.height / 2))
+    .force(
+      "x",
+      d3.forceX((d) => d.seedX).strength(graph.vertical ? 0.16 : 0.22),
+    )
     .alphaTarget(0.05)
     .restart();
 

@@ -198,9 +198,56 @@
                 <div class="graph-container" id="graphContainer">
                     <div class="graph-loader" id="graphLoader">
                         <div class="graph-loader-animation">
-                            <div class="graph-loader-dot"></div>
-                            <div class="graph-loader-dot"></div>
-                            <div class="graph-loader-dot"></div>
+                            <svg
+                                class="loader-net"
+                                viewBox="0 0 140 80"
+                                width="140"
+                                height="80"
+                                aria-hidden="true"
+                            >
+                                <!-- <path> + real dash lengths: mobile Safari
+                                     ignores pathLength on <line> elements -->
+                                <path
+                                    class="ln-edge ln-e-a"
+                                    d="M27,38 L65,21"
+                                />
+                                <path
+                                    class="ln-edge ln-e-a"
+                                    d="M27,42 L65,59"
+                                />
+                                <path
+                                    class="ln-edge ln-e-b"
+                                    d="M75,21 L113,38"
+                                />
+                                <path
+                                    class="ln-edge ln-e-b"
+                                    d="M75,59 L113,42"
+                                />
+                                <circle
+                                    class="ln-node ln-start"
+                                    cx="22"
+                                    cy="40"
+                                    r="5"
+                                />
+                                <circle
+                                    class="ln-node ln-mid"
+                                    cx="70"
+                                    cy="19"
+                                    r="4"
+                                />
+                                <circle
+                                    class="ln-node ln-mid"
+                                    cx="70"
+                                    cy="61"
+                                    r="4"
+                                />
+                                <circle
+                                    class="ln-node ln-end"
+                                    cx="118"
+                                    cy="40"
+                                    r="5"
+                                />
+                            </svg>
                         </div>
                         <div>Building your path visualization...</div>
                     </div>
