@@ -27,7 +27,7 @@ It uses **bidirectional BFS** (default) which searches simultaneously from both 
 
 ## Tech Stack
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Python](https://img.shields.io/badge/Python-3.13%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-3.1-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com)
 [![Celery](https://img.shields.io/badge/Celery-5.5-37B24D?style=for-the-badge&logo=celery&logoColor=white)](https://docs.celeryproject.org/)
 [![Redis](https://img.shields.io/badge/Redis-6-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io)
@@ -58,7 +58,6 @@ Swagger docs at [http://localhost:9020/api/docs](http://localhost:9020/api/docs)
 | Script | When to use |
 |--------|-------------|
 | `dev.sh` | Local development — starts Redis (if needed), Flask, and Celery in one terminal |
-| `start.sh` | Manual production-like run on a single host (both web + worker) |
 | `entrypoint.sh` | Docker/Railway container entry — switches on `SERVICE_TYPE` env var |
 
 ## Dev

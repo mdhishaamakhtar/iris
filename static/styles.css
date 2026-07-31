@@ -39,6 +39,14 @@
     --transition-fast: 0.15s ease;
     --transition-normal: 0.2s ease;
     --transition-slow: 0.3s ease;
+
+    /* Inner padding of the graph card. The loader and progress overlays are
+       absolutely positioned and must inset by exactly this much, or they sit
+       off the graph's content box and the panel jumps when the graph appears. */
+    --graph-pad: 32px;
+
+    /* Focus ring, shared by every keyboard-focusable control */
+    --focus-ring: 0 0 0 3px rgba(88, 166, 255, 0.45);
 }
 
 /* Reset */
@@ -120,6 +128,15 @@ header p {
     display: inline-flex;
     align-items: center;
 }
+.link-button:focus-visible,
+.btn:focus-visible,
+.path-step:focus-visible,
+.last-node .stat-value:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 2px;
+    box-shadow: var(--focus-ring);
+}
+
 .link-button:hover {
     background: var(--bg-tertiary);
     border-color: var(--border-accent);
@@ -240,7 +257,8 @@ header p {
 }
 
 .form-group input::placeholder {
-    color: var(--text-tertiary);
+    /* --text-tertiary reads at 3.3:1 here, under the 4.5:1 AA floor */
+    color: var(--text-secondary);
     font-style: italic;
 }
 
@@ -366,7 +384,7 @@ header p {
     background: var(--bg-secondary);
     border: 1px solid var(--border-primary);
     border-radius: var(--radius-lg);
-    padding: 32px;
+    padding: var(--graph-pad);
     margin-bottom: 32px;
     box-shadow: var(--shadow-medium);
     position: relative;
@@ -392,7 +410,7 @@ header p {
 /* Graph Loader */
 .graph-loader {
     position: absolute;
-    inset: 32px;
+    inset: var(--graph-pad);
     transform: none;
     text-align: center;
     color: var(--text-secondary);
@@ -543,7 +561,7 @@ header p {
     background: var(--bg-secondary);
     border: 1px solid var(--border-primary);
     border-radius: var(--radius-lg);
-    padding: 32px;
+    padding: var(--graph-pad);
     font-family: "JetBrains Mono", monospace;
     font-size: 14px;
     text-align: center;
@@ -555,7 +573,7 @@ header p {
     gap: 32px;
     box-sizing: border-box;
     position: absolute;
-    inset: 32px;
+    inset: var(--graph-pad);
     transform: none;
     margin: 0;
 }
@@ -666,7 +684,7 @@ header p {
 
 .stat-label {
     font-size: 12px;
-    color: var(--text-tertiary);
+    color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -708,10 +726,8 @@ header p {
 /* Responsive Search Progress */
 @media (max-width: 768px) {
     .search-progress {
-        position: absolute;
-        inset: 16px;
         margin: 0;
-        padding: 16px;
+        padding: 20px;
         font-size: 13px;
         gap: 20px;
         justify-content: center;
@@ -720,8 +736,7 @@ header p {
         max-width: none;
     }
     .graph-loader {
-        inset: 16px;
-        padding: 16px;
+        padding: 20px;
         width: auto;
         max-width: none;
     }
@@ -739,15 +754,12 @@ header p {
 
 @media (max-width: 480px) {
     .search-progress {
-        position: absolute;
-        inset: 12px;
         padding: 14px;
         font-size: 12px;
         gap: 16px;
         justify-content: center;
     }
     .graph-loader {
-        inset: 12px;
         padding: 14px;
     }
 
@@ -1001,9 +1013,12 @@ header p {
     }
 
     .input-section,
-    .path-steps-container,
-    .graph-container {
+    .path-steps-container {
         padding: 16px;
+    }
+
+    .graph-container {
+        --graph-pad: 16px;
     }
 
     .graph-container.loading {
