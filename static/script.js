@@ -243,9 +243,14 @@ class PathFinderUI {
     lastNodeEl.textContent = "-";
     lastNodeEl.classList.add("disabled");
     lastNodeEl.setAttribute("tabindex", "-1");
+    lastNodeEl.setAttribute("aria-disabled", "true");
 
-    // Reset depth
-    this.updateDepthIndicator(0, 10);
+    // Reset depth. The real budget arrives with the first progress update;
+    // until then keep whatever count is already rendered.
+    this.updateDepthIndicator(
+      0,
+      document.getElementById("depthDots").children.length || 6,
+    );
   }
 
   updateProgressDisplay(progressData) {
@@ -260,7 +265,7 @@ class PathFinderUI {
       `${stats.start_page} → ${stats.end_page}`;
 
     // Update depth indicator
-    this.updateDepthIndicator(stats.current_depth, stats.max_depth || 6);
+    this.updateDepthIndicator(stats.current_depth || 0, stats.max_depth || 6);
 
     // Update statistics
     document.getElementById("nodesExplored").textContent =
@@ -272,17 +277,27 @@ class PathFinderUI {
     const lastNodeEl = document.getElementById("lastNode");
     const ln = stats.last_node || "-";
     lastNodeEl.textContent = ln;
-    if (ln && ln !== "-") {
-      lastNodeEl.classList.remove("disabled");
-      lastNodeEl.setAttribute("tabindex", "0");
-    } else {
-      lastNodeEl.classList.add("disabled");
-      lastNodeEl.setAttribute("tabindex", "-1");
-    }
+    const openable = Boolean(ln) && ln !== "-";
+    lastNodeEl.classList.toggle("disabled", !openable);
+    lastNodeEl.setAttribute("tabindex", openable ? "0" : "-1");
+    lastNodeEl.setAttribute("aria-disabled", String(!openable));
   }
 
   updateDepthIndicator(currentDepth, maxDepth) {
-    const dots = document.querySelectorAll("#depthDots .depth-dot");
+    const container = document.getElementById("depthDots");
+    const total = Math.max(1, Math.round(maxDepth));
+
+    // Reconcile the dot count with the depth budget the server reported.
+    while (container.children.length > total) {
+      container.lastElementChild.remove();
+    }
+    while (container.children.length < total) {
+      const dot = document.createElement("div");
+      dot.className = "depth-dot";
+      container.appendChild(dot);
+    }
+
+    const dots = container.querySelectorAll(".depth-dot");
 
     dots.forEach((dot, index) => {
       dot.classList.remove("active", "completed");
@@ -575,14 +590,12 @@ class PathFinderUI {
 
     svg.selectAll("*").remove();
 
-    // Get actual container dimensions (padding varies by breakpoint)
+    // Content-box width. clientWidth excludes borders, so subtracting the
+    // padding lands exactly on the box the SVG is stretched to fill; using
+    // getBoundingClientRect here left the viewBox 2px wider than the element
+    // and scaled every node position by a fraction of a percent.
     const container = document.getElementById("graphContainer");
-    const containerRect = container.getBoundingClientRect();
-    const containerStyle = getComputedStyle(container);
-    const padH =
-      parseFloat(containerStyle.paddingLeft) +
-      parseFloat(containerStyle.paddingRight);
-    const width = containerRect.width - padH;
+    const width = contentWidth(container);
     const nodeCount = nodes.length;
 
     // Narrow viewports read the path top-to-bottom instead of left-to-right
@@ -1128,6 +1141,16 @@ document.addEventListener("DOMContentLoaded", () => {
   pathFinderUI = new PathFinderUI();
 });
 
+// Inner width available to the graph, excluding border and padding.
+function contentWidth(el) {
+  const style = getComputedStyle(el);
+  return (
+    el.clientWidth -
+    parseFloat(style.paddingLeft) -
+    parseFloat(style.paddingRight)
+  );
+}
+
 // Simple debounce to avoid thrashing on mobile address bar show/hide
 function debounce(fn, wait) {
   let t;
@@ -1144,12 +1167,7 @@ PathFinderUI.prototype.resizeGraph = function () {
 
   const container = document.getElementById("graphContainer");
   if (!container) return;
-  const { width: containerWidth } = container.getBoundingClientRect();
-  const containerStyle = getComputedStyle(container);
-  const padH =
-    parseFloat(containerStyle.paddingLeft) +
-    parseFloat(containerStyle.paddingRight);
-  const newWidth = containerWidth - padH;
+  const newWidth = contentWidth(container);
 
   const newVertical = newWidth < 520;
   if (newVertical !== graph.vertical) {

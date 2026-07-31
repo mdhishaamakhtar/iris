@@ -1,10 +1,12 @@
-# Import the Flask app and Celery instances from the app factory
-from app import celery as celery
-from app import create_app
+"""Celery entrypoint: ``celery -A celery_worker.celery worker``.
 
-# Create the Flask app instance
-app = create_app()
+Creating the app registers the tasks and installs the app-context task base, so
+workers share the web process's configuration and services.
+"""
 
-# Push an application context to make it available to the Celery tasks.
-# This ensures that tasks can access app configurations and extensions.
-app.app_context().push()
+from app import celery, create_app
+
+flask_app = create_app()
+flask_app.app_context().push()
+
+__all__ = ["celery"]

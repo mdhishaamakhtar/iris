@@ -1,160 +1,204 @@
-import os
+"""Application factory and shared service wiring.
+
+Long-lived collaborators — the Redis store and the Wikipedia client — are built
+once per process and hung off ``app.extensions``, which is where Flask expects
+extension state to live. Reach them through :func:`services`; because Celery
+tasks run inside an app context, that works identically in web and worker
+processes and replaces the old hand-rolled singleton factory.
+"""
+
+from __future__ import annotations
+
+import logging
 import uuid
+from dataclasses import dataclass
 
 from celery import Celery
 from celery.signals import after_setup_logger, after_setup_task_logger
 from flasgger import Swagger
-from flask import Flask, g, jsonify
+from flask import Flask, Response, current_app, g, jsonify, request
 from marshmallow import ValidationError
+from werkzeug.exceptions import HTTPException
 
-from app.api.swagger import SWAGGER_CONFIG, SWAGGER_TEMPLATE
-from app.utils.constants import ERROR_INTERNAL_ERROR
-from app.utils.exceptions import IrisBaseException
-from app.utils.logging import JSONFormatter, RequestContextFilter, configure_logging
-from config.development import DevelopmentConfig
-from config.production import ProductionConfig
-from config.testing import TestingConfig
+from app.config import Settings
+from app.errors import ErrorCode, IrisError
+from app.log import configure_logging, json_handler
+from app.store import RedisStore
+from app.wikipedia import WikipediaClient, WikipediaSource
 
-# Initialize Celery
+logger = logging.getLogger(__name__)
+
 celery = Celery(__name__)
 
+SWAGGER_TEMPLATE = {
+    "swagger": "2.0",
+    "info": {
+        "title": "Iris Wikipedia Pathfinder API",
+        "description": "Find the shortest path between two Wikipedia pages.",
+        "version": "2.0.0",
+        "license": {"name": "MIT"},
+    },
+    "basePath": "/",
+    "consumes": ["application/json"],
+    "produces": ["application/json"],
+    "tags": [
+        {"name": "Pathfinding", "description": "Find paths between Wikipedia pages"},
+        {"name": "Tasks", "description": "Inspect and cancel background searches"},
+        {"name": "System", "description": "Health and administration"},
+    ],
+}
 
-def create_app(config_class=None):
-    """
-    Creates and configures the Flask application instance.
-    This is the application factory.
-    """
-    static_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
-    app = Flask(__name__, static_folder=static_folder)
+SWAGGER_CONFIG = {
+    "headers": [],
+    "specs": [{"endpoint": "apispec", "route": "/apispec.json"}],
+    "static_url_path": "/flasgger_static",
+    "swagger_ui": True,
+    "specs_route": "/api/docs",
+}
 
-    # Determine configuration class
-    if config_class is None:
-        env = os.environ.get("FLASK_ENV", "development")
-        if env == "production":
-            config_class = ProductionConfig
-        elif env == "testing":
-            config_class = TestingConfig
-        else:
-            config_class = DevelopmentConfig
 
-    app.config.from_object(config_class)
+@dataclass(frozen=True, slots=True)
+class Services:
+    """Process-wide collaborators, created once in :func:`create_app`."""
 
-    # Validate configuration
-    config_class.validate_config()
+    settings: Settings
+    store: RedisStore
+    wikipedia: WikipediaSource
 
-    # Configure logging
-    configure_logging(app)
 
-    # Configure Celery
-    configure_celery(app)
+def services() -> Services:
+    """The current app's services. Requires an application context."""
+    return current_app.extensions["iris"]
 
-    # Initialize Swagger UI
+
+def create_app(settings: Settings | None = None) -> Flask:
+    settings = settings or Settings.from_env()
+
+    app = Flask(__name__, static_folder="../static", static_url_path="/static")
+    app.config.update(
+        SECRET_KEY=settings.secret_key,
+        DEBUG=settings.debug,
+        TESTING=settings.testing,
+        MAX_CONTENT_LENGTH=1024 * 1024,
+        JSON_SORT_KEYS=False,
+    )
+
+    configure_logging(app, settings)
+
+    store = RedisStore.connect(settings.redis_url, settings.links_cache_ttl)
+    app.extensions["iris"] = Services(
+        settings=settings,
+        store=store,
+        wikipedia=WikipediaClient(settings, cache=store),
+    )
+
+    _configure_celery(app, settings)
     Swagger(app, template=SWAGGER_TEMPLATE, config=SWAGGER_CONFIG)
+    _register_hooks(app)
+    _register_error_handlers(app)
 
-    # Attach a unique request_id to every incoming request
-    @app.before_request
-    def set_request_id():
-        g.request_id = str(uuid.uuid4())
+    from app.routes import api
 
-    # Register blueprints
-    register_blueprints(app)
+    app.register_blueprint(api)
 
-    # Register error handlers
-    register_error_handlers(app)
-
-    app.logger.info("app_created", extra={"config": config_class.__name__})
+    logger.info("app_created", extra={"env": settings.env})
     return app
 
 
-def configure_celery(app):
-    """Configure Celery with Flask app."""
+# --- Request lifecycle ----------------------------------------------------
+
+
+def _register_hooks(app: Flask) -> None:
+    @app.before_request
+    def start_request() -> None:
+        g.request_id = str(uuid.uuid4())
+
+    @app.after_request
+    def finish_request(response: Response) -> Response:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        if request.path.startswith(("/static/", "/flasgger_static/")):
+            return response
+        logger.info("request_completed", extra={"http_status": response.status_code})
+        return response
+
+
+def _register_error_handlers(app: Flask) -> None:
+    """One handler per error *shape*, not one per exception class."""
+
+    def problem(
+        message: str, code: str, status: int, **extra: object
+    ) -> tuple[Response, int]:
+        return jsonify(
+            {"error": True, "message": message, "code": code, **extra}
+        ), status
+
+    @app.errorhandler(ValidationError)
+    def on_validation_error(exc: ValidationError):
+        logger.warning("validation_error", extra={"details": exc.messages})
+        return problem(
+            "Invalid request data",
+            ErrorCode.INVALID_REQUEST,
+            400,
+            details=exc.messages,
+        )
+
+    @app.errorhandler(IrisError)
+    def on_iris_error(exc: IrisError):
+        logger.warning(
+            "application_error", extra={"code": exc.code, "error": exc.message}
+        )
+        return problem(exc.message, exc.code, exc.status)
+
+    @app.errorhandler(HTTPException)
+    def on_http_error(exc: HTTPException):
+        return problem(
+            exc.description or exc.name,
+            exc.name.upper().replace(" ", "_"),
+            exc.code or 500,
+        )
+
+    @app.errorhandler(Exception)
+    def on_unexpected_error(exc: Exception):
+        logger.error("unexpected_error", extra={"error": str(exc)}, exc_info=True)
+        return problem("Internal server error", ErrorCode.INTERNAL_ERROR, 500)
+
+
+# --- Celery ---------------------------------------------------------------
+
+
+def _configure_celery(app: Flask, settings: Settings) -> None:
     celery.conf.update(
-        broker_url=app.config["CELERY_BROKER_URL"],
-        result_backend=app.config["CELERY_RESULT_BACKEND"],
-        task_acks_late=app.config["CELERY_TASK_ACKS_LATE"],
-        worker_prefetch_multiplier=app.config["CELERY_WORKER_PREFETCH_MULTIPLIER"],
-        task_soft_time_limit=app.config["CELERY_TASK_SOFT_TIME_LIMIT"],
-        task_time_limit=app.config["CELERY_TASK_TIME_LIMIT"],
-        # Prevent Celery from replacing our root-logger handlers on worker startup
+        broker_url=settings.redis_url,
+        result_backend=settings.redis_url,
+        task_acks_late=True,
+        worker_prefetch_multiplier=1,
+        task_soft_time_limit=settings.task_soft_time_limit,
+        task_time_limit=settings.task_time_limit,
+        task_reject_on_worker_lost=True,
+        result_expires=3600,
+        timezone="UTC",
+        # Keep our root-logger JSON handlers instead of Celery's plain text.
         worker_hijack_root_logger=False,
     )
 
-    # After Celery sets up any loggers of its own, replace their formatters with ours
-    def _apply_json_formatter(logger, **kwargs):
+    def use_json_logging(logger: logging.Logger, **_: object) -> None:
         for handler in logger.handlers:
-            handler.setFormatter(JSONFormatter())
-            handler.addFilter(RequestContextFilter())
+            json_handler(handler, handler.level)
 
-    after_setup_logger.connect(_apply_json_formatter)
-    after_setup_task_logger.connect(_apply_json_formatter)
+    after_setup_logger.connect(use_json_logging)
+    after_setup_task_logger.connect(use_json_logging)
 
-    # Configure task routes and periodic tasks
-    from app.infrastructure.tasks import configure_periodic_tasks, configure_task_routes
+    from app.tasks import register_schedule
 
-    configure_task_routes(celery)
-    configure_periodic_tasks(celery)
+    register_schedule(celery)
 
-    class ContextTask(celery.Task):
-        """Make celery tasks work with Flask app context."""
+    class AppContextTask(celery.Task):
+        """Runs every task inside the Flask app context."""
 
-        def __call__(self, *args, **kwargs):
+        def __call__(self, *args: object, **kwargs: object) -> object:
             with app.app_context():
                 return self.run(*args, **kwargs)
 
-    celery.Task = ContextTask
-    app.logger.info("Celery configured successfully")
-
-
-def register_blueprints(app):
-    """Register Flask blueprints."""
-    from app.api.routes import main as main_blueprint
-
-    app.register_blueprint(main_blueprint, url_prefix="/")
-    app.logger.info("Blueprints registered successfully")
-
-
-def register_error_handlers(app):
-    """Register global error handlers."""
-
-    @app.errorhandler(IrisBaseException)
-    def handle_iris_exception(e):
-        app.logger.error("iris_exception", extra={"error": str(e)})
-        response = {"error": True, "message": str(e), "code": e.__class__.__name__}
-        return jsonify(response), 500
-
-    @app.errorhandler(ValidationError)
-    def handle_validation_error(e):
-        app.logger.warning("validation_error", extra={"error": str(e)})
-        response = {
-            "error": True,
-            "message": "Validation failed",
-            "code": "VALIDATION_ERROR",
-            "details": e.messages,
-        }
-        return jsonify(response), 400
-
-    @app.errorhandler(404)
-    def handle_not_found(e):
-        response = {"error": True, "message": "Resource not found", "code": "NOT_FOUND"}
-        return jsonify(response), 404
-
-    @app.errorhandler(405)
-    def handle_method_not_allowed(e):
-        response = {
-            "error": True,
-            "message": "Method not allowed",
-            "code": "METHOD_NOT_ALLOWED",
-        }
-        return jsonify(response), 405
-
-    @app.errorhandler(500)
-    def handle_internal_error(e):
-        app.logger.error("internal_server_error", extra={"error": str(e)})
-        response = {
-            "error": True,
-            "message": "Internal server error",
-            "code": ERROR_INTERNAL_ERROR,
-        }
-        return jsonify(response), 500
-
-    app.logger.info("Error handlers registered successfully")
+    celery.Task = AppContextTask
