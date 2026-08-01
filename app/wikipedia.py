@@ -56,17 +56,32 @@ class LinkQuery:
     extract: Callable[[dict[str, Any], str], list[str]]
 
 
+def resolve_title(query: dict[str, Any], title: str) -> str:
+    """Follow the API's own title rewrites to the page it actually answered for.
+
+    MediaWiki rewrites in a fixed order: it *normalises* first ("shah rukh khan"
+    → "Shah rukh khan"), then follows *redirects* ("Shah rukh khan" → "Shah Rukh
+    Khan"), reporting each stage separately. Applying them in that order is what
+    makes a casually-typed title land on the article; doing redirects first
+    misses the hand-off and leaves the title stranded at the input.
+    """
+    for stage in ("normalized", "redirects"):
+        moves = {entry["from"]: entry["to"] for entry in query.get(stage, [])}
+        seen = {title}
+        # A stage can chain; ``seen`` stops a malformed cycle from spinning.
+        while (nxt := moves.get(title)) and nxt not in seen:
+            title = nxt
+            seen.add(title)
+    return title
+
+
 def _extract_links(query: dict[str, Any], title: str) -> list[str]:
     """Pull outgoing links out of a ``prop=links`` response.
 
     The API answers under the resolved title, so redirects and normalisations
     are followed back to the title that was asked for.
     """
-    resolved = title
-    for mapping in ("redirects", "normalized"):
-        for entry in query.get(mapping, []):
-            if entry["from"] == resolved:
-                resolved = entry["to"]
+    resolved = resolve_title(query, title)
 
     for page in query.get("pages", {}).values():
         if page.get("title") == resolved and "missing" not in page:
@@ -177,9 +192,7 @@ class WikipediaClient:
             {"titles": title, "prop": "info|categories", "cllimit": "max"}
         ).get("query", {})
 
-        resolved = next(
-            (r["to"] for r in query.get("redirects", []) if r["from"] == title), title
-        )
+        resolved = resolve_title(query, title)
         page = next(
             (p for p in query.get("pages", {}).values() if "missing" not in p), None
         )

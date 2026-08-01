@@ -38,6 +38,9 @@ GRAPH: dict[str, list[str]] = {
 
 DISAMBIGUATION_PAGES = {"Mercury"}
 
+REDIRECTS = {"python": "Python", "Maths": "Mathematics"}
+"""Titles that exist only as an alias, the way a lower-cased input does."""
+
 
 class FakeWikipedia:
     """Serves :data:`GRAPH` with the real client's interface."""
@@ -68,10 +71,11 @@ class FakeWikipedia:
         return self._respond(found, on_page)
 
     def page_status(self, title: str) -> PageStatus:
+        resolved = REDIRECTS.get(title, title)
         return PageStatus(
-            exists=title in self.graph or title in DISAMBIGUATION_PAGES,
-            resolved_title=title,
-            is_disambiguation=title in DISAMBIGUATION_PAGES,
+            exists=resolved in self.graph or resolved in DISAMBIGUATION_PAGES,
+            resolved_title=resolved,
+            is_disambiguation=resolved in DISAMBIGUATION_PAGES,
         )
 
     @staticmethod

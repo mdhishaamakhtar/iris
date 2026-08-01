@@ -45,6 +45,21 @@ def test_search_stats_carry_what_the_ui_displays(app):
     assert stats["max_depth"] > 0
 
 
+def test_searches_from_the_canonical_titles_not_what_was_typed(app, wikipedia):
+    """An alias must be resolved before the frontier ever sees it.
+
+    The search compares titles as strings and backlinks resolve nothing, so a
+    frontier seeded with "python" explores an article that no link points at.
+    """
+    result = run(start="python", end="Maths")
+
+    assert result["status"] == "SUCCESS"
+    assert result["path"][0] == "Python"
+    assert result["path"][-1] == "Mathematics"
+    assert result["start_page"] == "Python"
+    assert wikipedia.link_calls[0] == ["Python"]
+
+
 def test_publishes_progress_while_searching(app):
     with patch.object(find_path_task, "update_state") as update_state:
         find_path_task.apply(args=("Python", "Mathematics", BIDIRECTIONAL))
