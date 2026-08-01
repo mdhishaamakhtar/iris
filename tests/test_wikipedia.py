@@ -331,6 +331,34 @@ def test_reports_where_a_normalised_redirect_lands(settings):
     assert build(settings, session).page_status("nyc").resolved_title == "New York City"
 
 
+def test_recovers_a_title_that_differs_only_by_case(settings):
+    """Wikipedia capitalises the first letter and nothing else.
+
+    "sHaH rUkH kHaN" is therefore a page that genuinely does not exist, and
+    only the search index knows what was meant.
+    """
+    session = FakeSession(
+        FakeResponse({"query": {"pages": {"-1": {"missing": ""}}}}),
+        FakeResponse({"query": {"search": [{"title": "Shah Rukh Khan"}]}}),
+        FakeResponse({"query": {"pages": {"1": {"title": "Shah Rukh Khan"}}}}),
+    )
+    status = build(settings, session).page_status("sHaH rUkH kHaN")
+
+    assert status.exists
+    assert status.resolved_title == "Shah Rukh Khan"
+
+
+def test_a_search_hit_that_is_not_a_case_variant_is_refused(settings):
+    """The fallback fixes capitalisation, deliberately not spelling."""
+    session = FakeSession(
+        FakeResponse({"query": {"pages": {"-1": {"missing": ""}}}}),
+        FakeResponse({"query": {"search": [{"title": "Something Else Entirely"}]}}),
+    )
+    status = build(settings, session).page_status("asdkjhaskdjh")
+
+    assert not status.exists
+
+
 # --- Rate limiting --------------------------------------------------------
 
 

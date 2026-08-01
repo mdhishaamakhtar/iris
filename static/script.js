@@ -541,11 +541,8 @@ class PathFinderUI {
     StateManager.save(state);
 
     this.showGraphVisualization();
-    // The list before the graph: above 1080px the two sit side by side, so
-    // revealing the list shrinks the graph container. Rendering the SVG first
-    // would size its viewBox to the full-width container it no longer has.
-    this.displayPathList(result.path, result);
     this.visualizePath(result.path);
+    this.displayPathList(result.path, result);
 
     // Clear task ID since it's completed and update button state
     currentTaskId = null;
