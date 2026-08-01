@@ -30,10 +30,6 @@
     --shadow-medium: 0 3px 6px rgba(0, 0, 0, 0.5);
     --shadow-large: 0 8px 24px rgba(0, 0, 0, 0.4);
 
-    /* The single highlight that separates a raised surface from the page.
-       One hairline, no halo — the whole depth budget for this interface. */
-    --edge-highlight: inset 0 1px 0 rgba(240, 246, 252, 0.04);
-
     /* Border radius */
     --radius-sm: 6px;
     --radius-md: 8px;
@@ -43,36 +39,6 @@
     --transition-fast: 0.15s ease;
     --transition-normal: 0.2s ease;
     --transition-slow: 0.3s ease;
-
-    /* Spacing scale, 4px base. The step number is the multiple, so --sp-6 is
-       24px. Every gap, padding and margin comes from here; one-off pixel
-       values are what flattened the old rhythm into "32px everywhere". */
-    --sp-1: 4px;
-    --sp-2: 8px;
-    --sp-3: 12px;
-    --sp-4: 16px;
-    --sp-5: 20px;
-    --sp-6: 24px;
-    --sp-8: 32px;
-    --sp-10: 40px;
-    --sp-12: 48px;
-    --sp-16: 64px;
-
-    /* Type scale. Six steps, each a visible jump from the last. */
-    --fs-xs: 11px;
-    --fs-sm: 13px;
-    --fs-base: 14px;
-    --fs-md: 15px;
-    --fs-lg: 17px;
-    --fs-xl: 24px;
-    /* Form controls hold at 16px: anything smaller makes iOS Safari zoom the
-       viewport on focus, which strands the user mid-page. */
-    --fs-control: 16px;
-
-    /* One shell width for every band on the page, so the cards share a left
-       edge. Prose inside them is capped separately, by measure. */
-    --shell: 1240px;
-    --measure: 68ch;
 
     /* Inner padding of the graph card. The loader and progress overlays are
        absolutely positioned and must inset by exactly this much, or they sit
@@ -95,79 +61,57 @@ body {
     background: var(--bg-primary);
     color: var(--text-primary);
     line-height: 1.6;
-    font-size: var(--fs-base);
+    font-size: 14px;
     min-height: 100vh;
     overflow-x: hidden;
 }
 
 .container {
-    max-width: var(--shell);
+    max-width: 1400px;
     margin: 0 auto;
-    padding: var(--sp-8);
+    padding: 32px;
     min-height: 100vh;
-}
-
-.hidden {
-    display: none !important;
-}
-
-/* Shared surface: every panel on the page is this, so they read as one system
-   rather than four unrelated boxes. */
-.info-box,
-.input-section,
-.graph-container,
-.path-steps-container {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-primary);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--edge-highlight);
 }
 
 /* Header */
 header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--sp-4) var(--sp-6);
-    padding-bottom: var(--sp-6);
-    margin-bottom: var(--sp-8);
-    border-bottom: 1px solid var(--border-primary);
+    text-align: center;
+    margin-bottom: 48px;
+    padding: 24px 0;
+}
+
+header h1 {
+    font-size: 42px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    letter-spacing: -0.02em;
 }
 
 .header-logo-container {
     display: flex;
     align-items: center;
-    gap: var(--sp-4);
-    min-width: 0;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 12px;
 }
 
 .header-logo {
-    width: 40px;
-    height: 40px;
+    width: 48px;
+    height: 48px;
     flex-shrink: 0;
 }
 
-.header-text {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-1);
-    min-width: 0;
-}
-
-header h1 {
-    font-size: var(--fs-xl);
-    font-weight: 700;
-    color: var(--text-primary);
-    letter-spacing: -0.02em;
-    line-height: 1.25;
-}
-
 header p {
-    font-size: var(--fs-sm);
+    font-size: 18px;
     color: var(--text-secondary);
+    max-width: 600px;
+    margin: 0 auto;
     font-weight: 400;
-    line-height: 1.5;
+}
+
+.header-actions {
+    margin-top: 12px;
 }
 
 .link-button {
@@ -175,18 +119,15 @@ header p {
     border: 1px solid var(--border-primary);
     color: var(--accent-blue);
     border-radius: var(--radius-sm);
-    padding: 0 var(--sp-4);
+    padding: 10px 14px;
     cursor: pointer;
     font: inherit;
-    font-size: var(--fs-sm);
     transition: var(--transition-fast);
     /* Minimum 44px touch target height */
     min-height: 44px;
-    flex-shrink: 0;
     display: inline-flex;
     align-items: center;
 }
-
 .link-button:focus-visible,
 .btn:focus-visible,
 .path-step:focus-visible,
@@ -196,7 +137,10 @@ header p {
     box-shadow: var(--focus-ring);
 }
 
-.link-button:hover,
+.link-button:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--border-accent);
+}
 .link-button[aria-expanded="true"] {
     background: var(--bg-tertiary);
     border-color: var(--border-accent);
@@ -204,159 +148,111 @@ header p {
 
 /* Info Box */
 .info-box {
-    padding: var(--sp-6);
-    margin-bottom: var(--sp-8);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 24px;
 }
 
 .info-header {
-    margin-bottom: var(--sp-4);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
 }
 
 .info-title {
-    font-size: var(--fs-lg);
-    font-weight: 600;
+    margin: 0;
+    font-size: 16px;
     color: var(--text-primary);
-    letter-spacing: -0.01em;
 }
+
+/* Removed cross dismiss button; use header toggle */
 
 .info-content p {
     color: var(--text-secondary);
-    max-width: var(--measure);
-}
-
-.info-content > * + * {
-    margin-top: var(--sp-4);
+    margin: 8px 0 12px 0;
 }
 
 .info-note {
     font-style: italic;
-    color: var(--text-tertiary) !important;
 }
 
 .info-list {
-    /* Padding, not margin: markers stay inside the card at narrow widths. */
-    padding-left: var(--sp-5);
-    max-width: var(--measure);
+    margin-left: 16px;
+    margin-bottom: 8px;
 }
 
 .info-list li {
     color: var(--text-secondary);
-    margin-bottom: var(--sp-2);
-}
-
-.info-list li:last-child {
-    margin-bottom: 0;
-}
-
-.info-list strong,
-.info-content strong {
-    color: var(--text-primary);
-    font-weight: 600;
+    margin: 4px 0;
 }
 
 .info-links {
     display: flex;
     align-items: center;
-    gap: var(--sp-2);
-    font-size: var(--fs-sm);
+    gap: 8px;
 }
 
 .info-links a {
     color: var(--accent-blue);
     text-decoration: underline;
-    text-underline-offset: 2px;
 }
 
-.info-links span {
-    color: var(--text-tertiary);
-}
-
-/* Search form — the page's primary control, and the only surface that carries
-   an accent edge. */
+/* Input Section */
 .input-section {
-    position: relative;
-    padding: var(--sp-8);
-    margin-bottom: var(--sp-8);
-    box-shadow: var(--edge-highlight), var(--shadow-medium);
-}
-
-/* A single hairline of accent along the top edge, fading out at both ends.
-   This is the entire gradient budget for the interface. */
-.input-section::before {
-    content: "";
-    position: absolute;
-    inset: 0 var(--sp-8) auto;
-    height: 1px;
-    background: linear-gradient(
-        90deg,
-        transparent,
-        rgba(88, 166, 255, 0.4),
-        transparent
-    );
-    pointer-events: none;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    margin-bottom: 32px;
+    box-shadow: var(--shadow-medium);
 }
 
 .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: var(--sp-6);
-    margin-bottom: var(--sp-6);
+    gap: 24px;
+    margin-bottom: 32px;
 }
 
 .form-group {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-2);
+    gap: 8px;
     min-width: 0;
 }
 
 .form-group label {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    font-size: var(--fs-xs);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
     font-weight: 600;
-    color: var(--text-secondary);
+    color: var(--text-accent);
     text-transform: uppercase;
     letter-spacing: 0.1em;
-}
-
-/* Start green, end red — the same two colors the graph and the path list use
-   for their endpoints, so the mapping is learned once at the input. */
-.form-group label::before {
-    content: "";
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    background: var(--text-tertiary);
-}
-
-.form-group--start label::before {
-    background: var(--success-green);
-}
-
-.form-group--end label::before {
-    background: var(--danger-red);
 }
 
 .form-group input {
     background: var(--bg-tertiary);
     border: 1px solid var(--border-secondary);
     border-radius: var(--radius-md);
-    padding: var(--sp-4) var(--sp-5);
-    font-size: var(--fs-control);
+    padding: 16px 20px;
+    font-size: 16px;
     color: var(--text-primary);
     font-family: "JetBrains Mono", monospace;
     transition: var(--transition-normal);
-    box-shadow: var(--edge-highlight);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
     width: 100%;
 }
 
 .form-group input:focus {
     outline: none;
     border-color: var(--accent-blue);
-    box-shadow: var(--edge-highlight), var(--focus-ring);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 0 0 3px rgba(88, 166, 255, 0.2);
     background: var(--bg-primary);
 }
 
@@ -366,19 +262,18 @@ header p {
     font-style: italic;
 }
 
-/* Buttons. Find Path takes the room; Clear is a compact escape hatch, and the
-   grid says so. */
+/* Buttons */
 .button-group {
     display: grid;
-    grid-template-columns: 1fr auto;
-    gap: var(--sp-3);
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
     align-items: center;
 }
 
 .btn {
-    padding: 0 var(--sp-6);
+    padding: 16px 20px;
     border-radius: var(--radius-md);
-    font-size: var(--fs-control);
+    font-size: 16px;
     font-weight: 600;
     font-family: "JetBrains Mono", monospace;
     cursor: pointer;
@@ -387,27 +282,32 @@ header p {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--sp-2);
+    gap: 8px;
     width: 100%;
-    height: 52px;
+    height: 54px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .btn-primary {
     background: var(--accent-blue);
     color: var(--bg-primary);
     border-color: var(--accent-blue);
+    box-shadow: var(--shadow-small);
 }
 
 .btn-primary:hover:not(:disabled) {
     background: var(--accent-blue-hover);
     border-color: var(--accent-blue-hover);
+    transform: translateY(-1px);
 }
 
 .btn-primary:disabled {
-    background: var(--bg-tertiary);
-    border-color: var(--border-primary);
-    color: var(--text-tertiary);
+    background: var(--text-tertiary);
+    border-color: var(--text-tertiary);
+    color: var(--bg-secondary);
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .btn-cancel {
@@ -418,11 +318,15 @@ header p {
 
 .btn-cancel:hover {
     background: rgba(248, 81, 73, 0.1);
+    border-color: var(--danger-red);
+    color: var(--danger-red);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-small);
 }
 
 .btn-secondary {
     background: transparent;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     border-color: var(--border-primary);
 }
 
@@ -430,37 +334,31 @@ header p {
     background: var(--bg-tertiary);
     border-color: var(--border-accent);
     color: var(--accent-blue);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-small);
 }
 
 /* Error Message */
 .error-message {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--sp-3);
-    background: rgba(248, 81, 73, 0.07);
-    border: 1px solid rgba(248, 81, 73, 0.5);
+    background: var(--bg-secondary);
+    border: 1px solid var(--danger-red);
     border-radius: var(--radius-md);
-    padding: var(--sp-4) var(--sp-5);
-    margin-bottom: var(--sp-8);
-}
-
-.error-message::before {
-    content: "";
-    width: 8px;
-    height: 8px;
-    margin-top: 7px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    background: var(--danger-red);
+    padding: 16px 24px;
+    margin-bottom: 24px;
+    text-align: center;
 }
 
 .error-message p {
     color: var(--danger-red);
-    font-size: var(--fs-base);
-    max-width: var(--measure);
+    font-size: 14px;
+    margin: 0;
 }
 
-/* Visualization */
+.hidden {
+    display: none !important;
+}
+
+/* Visualization Section */
 .visualization-section {
     display: none;
 }
@@ -473,7 +371,7 @@ header p {
 @keyframes slideUp {
     from {
         opacity: 0;
-        transform: translateY(12px);
+        transform: translateY(20px);
     }
 
     to {
@@ -483,8 +381,12 @@ header p {
 }
 
 .graph-container {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-lg);
     padding: var(--graph-pad);
-    margin-bottom: var(--sp-8);
+    margin-bottom: 32px;
+    box-shadow: var(--shadow-medium);
     position: relative;
     overflow: visible;
     /* Allow vertical page scroll while still supporting drag */
@@ -493,7 +395,7 @@ header p {
 
 /* Provide vertical space only while loading/progress overlay is shown */
 .graph-container.loading {
-    min-height: 520px;
+    min-height: 640px;
 }
 
 .graph-container svg {
@@ -509,16 +411,16 @@ header p {
 .graph-loader {
     position: absolute;
     inset: var(--graph-pad);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--sp-5);
+    transform: none;
     text-align: center;
     color: var(--text-secondary);
     background: var(--bg-tertiary);
     border: 1px solid var(--border-secondary);
     border-radius: var(--radius-md);
+    padding: 32px;
+    width: auto;
+    max-width: none;
+    min-height: initial;
     box-sizing: border-box;
     z-index: 10;
 }
@@ -528,6 +430,8 @@ header p {
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 4px;
+    margin-bottom: 16px;
 }
 
 /* Mini BFS network: edges draw outward from the start node through the
@@ -654,62 +558,58 @@ header p {
 
 /* Search Progress Display */
 .search-progress {
-    position: absolute;
-    inset: var(--graph-pad);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-lg);
+    /* Inner padding, deliberately its own value rather than --graph-pad. That
+       variable is the card's *inset*, which has to keep matching the graph
+       container; this is how much room the content gets once inside, and it is
+       free to be roomier. */
+    padding: 40px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 14px;
+    text-align: center;
+    width: auto;
+    max-width: none;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: var(--sp-10);
-    /* Inner padding, deliberately not --graph-pad: that variable is the card's
-       *inset*, which must keep matching the graph container. This is how much
-       room the content gets once inside, and it is free to be larger. */
-    padding: var(--sp-10);
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-secondary);
-    border-radius: var(--radius-md);
-    font-family: "JetBrains Mono", monospace;
-    font-size: var(--fs-base);
-    text-align: center;
+    gap: 36px;
     box-sizing: border-box;
+    position: absolute;
+    inset: var(--graph-pad);
+    transform: none;
+    margin: 0;
+    /* The panel is inset-positioned, so it cannot grow its container: content
+       taller than the box escapes from both ends and lands on the card above.
+       The min-heights below are measured to fit, and this is the guarantee for
+       anything that outgrows them anyway — a long title, a deeper budget. */
+    overflow-y: auto;
 }
 
 .search-progress-header {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-2);
-    align-items: center;
-}
-
-.search-progress-header > span:first-child {
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-}
-
-#searchPath {
-    font-size: var(--fs-lg);
-    font-weight: 600;
     color: var(--text-primary);
-    line-height: 1.4;
+    font-weight: 600;
+    margin-bottom: 0;
+    text-align: center;
     overflow-wrap: break-word;
     word-break: break-word;
-    max-width: 100%;
 }
 
 .activity-bar {
     width: 100%;
-    height: 4px;
-    background: var(--bg-primary);
+    height: 6px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-primary);
     border-radius: 4px;
     overflow: clip;
+    margin-bottom: 0;
 }
 
 .activity-bar-fill {
     height: 100%;
     background: var(--accent-blue);
-    border-radius: 4px;
+    border-radius: 3px;
     width: 60%;
     animation: slide-activity 1.8s ease-in-out infinite;
 }
@@ -741,21 +641,19 @@ header p {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--sp-3);
+    gap: 16px;
+    margin-bottom: 0;
     flex-wrap: wrap;
 }
 
 .depth-label {
-    font-size: var(--fs-xs);
-    font-weight: 600;
     color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+    min-width: 45px;
 }
 
 .depth-dots {
     display: flex;
-    gap: var(--sp-2);
+    gap: 6px;
 }
 
 .depth-dot {
@@ -778,55 +676,44 @@ header p {
 
 .search-stats {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--sp-3);
-    width: 100%;
-    max-width: 860px;
+    grid-template-columns: repeat(3, minmax(140px, 1fr));
+    gap: 28px 20px;
+    color: var(--text-secondary);
+    max-width: 800px;
     margin: 0 auto;
+    justify-items: center;
 }
 
-/* Each reading is its own surface, so the numbers sit in space rather than
-   crowding the label above them. */
 .search-stat {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: var(--sp-2);
-    padding: var(--sp-5) var(--sp-4);
-    min-width: 0;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-primary);
-    border-radius: var(--radius-md);
+    gap: 8px;
 }
 
 .stat-label {
-    font-size: var(--fs-xs);
+    font-size: 12px;
     color: var(--text-secondary);
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.5px;
 }
 
 .stat-value {
     color: var(--text-primary);
-    font-size: var(--fs-lg);
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-weight: 500;
     font-family: "JetBrains Mono", monospace;
 }
 
 .last-node {
     grid-column: 1 / -1;
+    margin-top: 16px;
 }
 
 .last-node .stat-value {
-    font-size: var(--fs-md);
-    font-weight: 500;
     color: var(--accent-blue);
     cursor: pointer;
     text-decoration: underline;
     text-decoration-color: transparent;
-    text-underline-offset: 3px;
     transition: text-decoration-color var(--transition-fast);
     overflow-wrap: break-word;
     word-break: break-word;
@@ -845,81 +732,104 @@ header p {
     text-decoration: none;
 }
 
-/* Path result — the payoff. Direction and endpoints have to be readable here
-   without the graph, because this is the part that survives a screenshot. */
+/* Responsive Search Progress */
+@media (max-width: 768px) {
+    .search-progress {
+        margin: 0;
+        padding: 24px;
+        font-size: 13px;
+        gap: 24px;
+        justify-content: center;
+        transform: none;
+        width: auto;
+        max-width: none;
+    }
+    .graph-loader {
+        padding: 20px;
+        width: auto;
+        max-width: none;
+    }
+
+    .search-stats {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .depth-dots {
+        gap: 4px;
+    }
+    /* Keep dots at default 10px — already small, don't reduce further */
+}
+
+@media (max-width: 480px) {
+    .search-progress {
+        padding: 20px;
+        font-size: 12px;
+        gap: 20px;
+        justify-content: center;
+    }
+    .graph-loader {
+        padding: 14px;
+    }
+
+    .search-progress-header {
+        font-size: 14px;
+        margin-bottom: 0;
+    }
+
+    .depth-label {
+        font-size: 11px;
+    }
+}
+
+/* Path Steps */
 .path-steps-container {
-    padding: var(--sp-8);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    box-shadow: var(--shadow-medium);
 }
 
 .path-header {
-    margin-bottom: var(--sp-6);
-    padding-bottom: var(--sp-4);
+    margin-bottom: 20px;
     border-bottom: 1px solid var(--border-primary);
+    padding-bottom: 16px;
 }
 
 .path-header h2 {
     color: var(--success-green);
-    font-size: var(--fs-lg);
+    font-size: 18px;
     font-weight: 600;
-    letter-spacing: -0.01em;
-    margin-bottom: var(--sp-1);
+    margin-bottom: 12px;
 }
 
-/* A single measured line, not three pills inside a card inside a card. */
 .path-stats {
     display: flex;
+    gap: 16px;
     flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--sp-2) var(--sp-3);
-    font-size: var(--fs-sm);
-    color: var(--text-secondary);
-    font-variant-numeric: tabular-nums;
 }
 
-.path-stats .stat:not(:first-child)::before {
-    content: "·";
-    margin-right: var(--sp-3);
-    color: var(--text-tertiary);
+.stat {
+    background: var(--bg-tertiary);
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-secondary);
+    font-size: 12px;
+    color: var(--text-secondary);
 }
 
 .path-steps {
-    --step-pad: var(--sp-4);
-    --marker: 32px;
-    position: relative;
     display: flex;
     flex-direction: column;
-    gap: var(--sp-2);
-}
-
-/* The rail: one continuous line threading every marker, running green to red
-   so the direction of travel is legible at a glance. */
-.path-steps::before {
-    content: "";
-    position: absolute;
-    top: calc(var(--step-pad) + var(--marker) / 2);
-    bottom: calc(var(--step-pad) + var(--marker) / 2);
-    left: calc(var(--step-pad) + var(--marker) / 2 - 1px);
-    width: 2px;
-    background: linear-gradient(
-        180deg,
-        var(--success-green),
-        var(--accent-blue) 50%,
-        var(--danger-red)
-    );
-    opacity: 0.3;
-    pointer-events: none;
-}
-
-/* A single-page path has nothing to connect. */
-.path-steps:has(.path-step:only-child)::before {
-    display: none;
+    gap: 12px;
 }
 
 .path-step {
     display: flex;
     align-items: center;
-    gap: var(--sp-4);
-    padding: var(--step-pad);
+    gap: 16px;
+    padding: 16px;
     background: var(--bg-tertiary);
     border: 1px solid var(--border-secondary);
     border-radius: var(--radius-md);
@@ -930,47 +840,31 @@ header p {
 .path-step:hover {
     background: var(--bg-primary);
     border-color: var(--accent-blue);
+    transform: translateX(4px);
+    box-shadow: var(--shadow-small);
 }
 
 .step-number {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: var(--marker);
-    height: var(--marker);
+    width: 32px;
+    height: 32px;
     background: var(--accent-blue);
     color: var(--bg-primary);
     border-radius: 50%;
-    font-size: var(--fs-base);
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 600;
     font-family: "JetBrains Mono", monospace;
     flex-shrink: 0;
-    /* Sits above the rail so the line threads behind it. */
-    position: relative;
-    z-index: 1;
-    /* Separates the marker from the rail passing underneath. */
-    box-shadow: 0 0 0 4px var(--bg-tertiary);
-    transition: box-shadow var(--transition-normal);
-}
-
-.path-step:hover .step-number {
-    box-shadow: 0 0 0 4px var(--bg-primary);
-}
-
-.path-step:first-child .step-number {
-    background: var(--success-green);
-}
-
-.path-step:last-child .step-number {
-    background: var(--danger-red);
+    box-shadow: var(--shadow-small);
 }
 
 .step-title {
     color: var(--text-primary);
     font-weight: 500;
-    font-size: var(--fs-md);
+    font-size: 15px;
     word-break: break-word;
-    min-width: 0;
 }
 
 /* Graph Styles */
@@ -1054,8 +948,8 @@ header p {
     background: var(--bg-primary);
     border: 1px solid var(--border-primary);
     border-radius: var(--radius-sm);
-    padding: var(--sp-3) var(--sp-4);
-    font-size: var(--fs-sm);
+    padding: 12px 16px;
+    font-size: 13px;
     font-weight: 500;
     color: var(--text-primary);
     box-shadow: var(--shadow-large);
@@ -1063,48 +957,63 @@ header p {
     opacity: 0;
     transition: var(--transition-fast);
     z-index: 1000;
+    backdrop-filter: blur(10px);
     font-family: "JetBrains Mono", monospace;
 }
 
-/* --- Responsive ------------------------------------------------------- */
-
-/* Wide: the path list is an index for the graph, so it sits beside it rather
-   than stretching a seven-row list across the full shell. */
-@media (min-width: 1080px) {
-    .visualization-section.show {
-        display: flex;
-        align-items: flex-start;
-        gap: var(--sp-8);
-    }
-
-    .graph-container {
-        flex: 1 1 0;
-        min-width: 0;
-        margin-bottom: 0;
-    }
-
-    .path-steps-container {
-        flex: 0 0 352px;
-    }
-}
-
+/* Responsive */
 @media (max-width: 768px) {
     .container {
-        padding: var(--sp-5);
-    }
-
-    header {
-        gap: var(--sp-4);
-        margin-bottom: var(--sp-6);
-    }
-
-    /* The About control drops below the brand rather than squeezing beside it */
-    .header-logo-container {
-        flex: 1 1 100%;
+        padding: 20px;
     }
 
     header h1 {
-        font-size: 20px;
+        font-size: 32px;
+    }
+
+    .header-logo-container {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .header-logo {
+        width: 40px;
+        height: 40px;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .button-group {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .results-info {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    /* Reduce oversized loading state on phone viewports */
+    .graph-container.loading {
+        min-height: 500px;
+    }
+
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 16px;
+    }
+
+    header {
+        margin-bottom: 32px;
+    }
+
+    header h1 {
+        font-size: 28px;
     }
 
     .header-logo {
@@ -1112,78 +1021,9 @@ header p {
         height: 36px;
     }
 
-    .info-box,
-    .input-section {
-        padding: var(--sp-5);
-        margin-bottom: var(--sp-6);
-    }
-
-    .input-section::before {
-        inset: 0 var(--sp-5) auto;
-    }
-
-    .form-row,
-    .button-group {
-        grid-template-columns: 1fr;
-        gap: var(--sp-4);
-    }
-
-    .graph-container {
-        --graph-pad: 20px;
-        margin-bottom: var(--sp-6);
-    }
-
-    /* Reduce oversized loading state on phone viewports */
-    .graph-container.loading {
-        min-height: 440px;
-    }
-
-    .search-progress {
-        padding: var(--sp-6);
-        gap: var(--sp-6);
-        font-size: var(--fs-sm);
-    }
-
-    #searchPath {
-        font-size: var(--fs-md);
-    }
-
-    .search-stats {
-        grid-template-columns: 1fr;
-        gap: var(--sp-3);
-    }
-
-    .search-stat {
-        padding: var(--sp-4);
-    }
-
-    .path-steps-container {
-        padding: var(--sp-5);
-    }
-}
-
-@media (max-width: 480px) {
-    .container {
-        padding: var(--sp-4);
-    }
-
-    header h1 {
-        font-size: 18px;
-    }
-
-    .header-logo {
-        width: 32px;
-        height: 32px;
-    }
-
-    .info-box,
     .input-section,
     .path-steps-container {
-        padding: var(--sp-4);
-    }
-
-    .input-section::before {
-        inset: 0 var(--sp-4) auto;
+        padding: 16px;
     }
 
     .graph-container {
@@ -1191,34 +1031,27 @@ header p {
     }
 
     .graph-container.loading {
-        min-height: 380px;
+        min-height: 480px;
     }
 
-    .search-progress {
-        padding: var(--sp-4);
-        gap: var(--sp-5);
-        font-size: 12px;
-    }
-
-    .search-stat {
-        padding: var(--sp-3) var(--sp-4);
-    }
-
-    .path-steps {
-        --step-pad: var(--sp-3);
-        --marker: 28px;
+    .graph-container svg {
+        height: 320px;
     }
 }
 
 /* Landscape orientation on mobile: reduce tall elements to avoid filling the entire viewport */
 @media (max-height: 500px) and (orientation: landscape) {
     header {
-        margin-bottom: var(--sp-5);
-        padding-bottom: var(--sp-4);
+        margin-bottom: 24px;
+        padding: 12px 0;
+    }
+
+    header h1 {
+        font-size: 24px;
     }
 
     .graph-container.loading {
-        min-height: 300px;
+        min-height: 280px;
     }
 
     .graph-container svg {
@@ -1226,24 +1059,16 @@ header p {
     }
 
     .search-progress {
-        gap: var(--sp-3);
-        padding: var(--sp-3);
+        gap: 12px;
+        padding: 12px;
     }
 
     .search-stats {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: var(--sp-2);
+        grid-template-columns: repeat(2, 1fr);
     }
 
-    /* Vertical room is the scarce thing here, so the cells keep their border
-       but give the padding back. */
-    .search-stat {
-        padding: var(--sp-2) var(--sp-3);
-        gap: var(--sp-1);
-    }
-
-    .stat-value {
-        font-size: var(--fs-base);
+    .last-node {
+        grid-column: 1 / -1;
     }
 }
 
