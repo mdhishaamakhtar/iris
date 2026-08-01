@@ -561,7 +561,11 @@ header p {
     background: var(--bg-secondary);
     border: 1px solid var(--border-primary);
     border-radius: var(--radius-lg);
-    padding: var(--graph-pad);
+    /* Inner padding, deliberately its own value rather than --graph-pad. That
+       variable is the card's *inset*, which has to keep matching the graph
+       container; this is how much room the content gets once inside, and it is
+       free to be roomier. */
+    padding: 40px;
     font-family: "JetBrains Mono", monospace;
     font-size: 14px;
     text-align: center;
@@ -570,12 +574,17 @@ header p {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 32px;
+    gap: 36px;
     box-sizing: border-box;
     position: absolute;
     inset: var(--graph-pad);
     transform: none;
     margin: 0;
+    /* The panel is inset-positioned, so it cannot grow its container: content
+       taller than the box escapes from both ends and lands on the card above.
+       The min-heights below are measured to fit, and this is the guarantee for
+       anything that outgrows them anyway — a long title, a deeper budget. */
+    overflow-y: auto;
 }
 
 .search-progress-header {
@@ -668,7 +677,7 @@ header p {
 .search-stats {
     display: grid;
     grid-template-columns: repeat(3, minmax(140px, 1fr));
-    gap: 20px;
+    gap: 28px 20px;
     color: var(--text-secondary);
     max-width: 800px;
     margin: 0 auto;
@@ -679,7 +688,7 @@ header p {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
+    gap: 8px;
 }
 
 .stat-label {
@@ -727,9 +736,9 @@ header p {
 @media (max-width: 768px) {
     .search-progress {
         margin: 0;
-        padding: 20px;
+        padding: 24px;
         font-size: 13px;
-        gap: 20px;
+        gap: 24px;
         justify-content: center;
         transform: none;
         width: auto;
@@ -743,7 +752,7 @@ header p {
 
     .search-stats {
         grid-template-columns: 1fr;
-        gap: 8px;
+        gap: 16px;
     }
 
     .depth-dots {
@@ -754,9 +763,9 @@ header p {
 
 @media (max-width: 480px) {
     .search-progress {
-        padding: 14px;
+        padding: 20px;
         font-size: 12px;
-        gap: 16px;
+        gap: 20px;
         justify-content: center;
     }
     .graph-loader {
@@ -989,7 +998,7 @@ header p {
 
     /* Reduce oversized loading state on phone viewports */
     .graph-container.loading {
-        min-height: 440px;
+        min-height: 500px;
     }
 
 }
@@ -1022,7 +1031,7 @@ header p {
     }
 
     .graph-container.loading {
-        min-height: 360px;
+        min-height: 480px;
     }
 
     .graph-container svg {

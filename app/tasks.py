@@ -109,7 +109,11 @@ def find_path_task(
     publish("Validating pages...", {"nodes_explored": 0, "current_depth": 0})
 
     try:
-        _check_pages_exist(start_page, end_page)
+        # Rebind to the canonical titles: `publish` and the success payload
+        # close over these names, so everything downstream reports the pages
+        # actually searched rather than whatever casing was typed. `fail` was
+        # built above from the originals, so errors still echo the input.
+        start_page, end_page = _check_pages_exist(start_page, end_page)
 
         publish(
             "Starting pathfinding search...",
@@ -193,13 +197,20 @@ def _failure(start_page: str, end_page: str) -> Callable[[str, str], TaskResult]
     return fail
 
 
-def _check_pages_exist(start_page: str, end_page: str) -> None:
-    """Reject missing pages, and disambiguation pages used as a target.
+def _check_pages_exist(start_page: str, end_page: str) -> tuple[str, str]:
+    """Reject missing pages, and return the canonical titles to search with.
 
     A disambiguation page is allowed as the *start*: its links are still useful
     for getting somewhere else.
+
+    The resolved titles matter to the search, not just to the response. The
+    frontier compares titles as strings, and ``list=backlinks`` resolves nothing
+    at all — seeded with a redirect it returns that redirect page's handful of
+    incoming links rather than the article's. Searching from what the user typed
+    is how "gibson guitars" turns a 20-second search into a hopeless one.
     """
     wikipedia = services().wikipedia
+    resolved: list[str] = []
 
     for title in (start_page, end_page):
         status = wikipedia.page_status(title)
@@ -207,6 +218,9 @@ def _check_pages_exist(start_page: str, end_page: str) -> None:
             raise PageNotFoundError(title)
         if title == end_page and status.is_disambiguation:
             raise DisambiguationError(title, status.resolved_title)
+        resolved.append(status.resolved_title)
+
+    return resolved[0], resolved[1]
 
 
 def _find_path(

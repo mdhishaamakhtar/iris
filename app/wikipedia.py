@@ -56,17 +56,32 @@ class LinkQuery:
     extract: Callable[[dict[str, Any], str], list[str]]
 
 
+def resolve_title(query: dict[str, Any], title: str) -> str:
+    """Follow the API's own title rewrites to the page it actually answered for.
+
+    MediaWiki rewrites in a fixed order: it *normalises* first ("shah rukh khan"
+    → "Shah rukh khan"), then follows *redirects* ("Shah rukh khan" → "Shah Rukh
+    Khan"), reporting each stage separately. Applying them in that order is what
+    makes a casually-typed title land on the article; doing redirects first
+    misses the hand-off and leaves the title stranded at the input.
+    """
+    for stage in ("normalized", "redirects"):
+        moves = {entry["from"]: entry["to"] for entry in query.get(stage, [])}
+        seen = {title}
+        # A stage can chain; ``seen`` stops a malformed cycle from spinning.
+        while (nxt := moves.get(title)) and nxt not in seen:
+            title = nxt
+            seen.add(title)
+    return title
+
+
 def _extract_links(query: dict[str, Any], title: str) -> list[str]:
     """Pull outgoing links out of a ``prop=links`` response.
 
     The API answers under the resolved title, so redirects and normalisations
     are followed back to the title that was asked for.
     """
-    resolved = title
-    for mapping in ("redirects", "normalized"):
-        for entry in query.get(mapping, []):
-            if entry["from"] == resolved:
-                resolved = entry["to"]
+    resolved = resolve_title(query, title)
 
     for page in query.get("pages", {}).values():
         if page.get("title") == resolved and "missing" not in page:
@@ -173,25 +188,51 @@ class WikipediaClient:
         if self.cache and (cached := self.cache.get(cache_key)):
             return PageStatus(**cached)
 
+        status = self._page_status(title)
+        if not status.exists and (match := self._match_ignoring_case(title)):
+            status = self._page_status(match)
+
+        if self.cache:
+            self.cache.set(cache_key, asdict(status), ttl=self.settings.page_cache_ttl)
+        return status
+
+    def _page_status(self, title: str) -> PageStatus:
         query = self._request(
             {"titles": title, "prop": "info|categories", "cllimit": "max"}
         ).get("query", {})
 
-        resolved = next(
-            (r["to"] for r in query.get("redirects", []) if r["from"] == title), title
-        )
+        resolved = resolve_title(query, title)
         page = next(
             (p for p in query.get("pages", {}).values() if "missing" not in p), None
         )
-        status = PageStatus(
+        return PageStatus(
             exists=page is not None,
             resolved_title=resolved,
             is_disambiguation=page is not None and _is_disambiguation(page),
         )
 
-        if self.cache:
-            self.cache.set(cache_key, asdict(status), ttl=self.settings.page_cache_ttl)
-        return status
+    def _match_ignoring_case(self, title: str) -> str | None:
+        """Find the article whose title differs from ``title`` only by case.
+
+        Wikipedia capitalises the first letter of a title and nothing else, so
+        "shah rukh khan" resolves through a redirect but "sHaH rUkH kHaN" is
+        simply a page that does not exist. The search index knows the real
+        title; accepting a hit only when it case-folds to what was typed keeps
+        this a fix for capitalisation and deliberately not for spelling.
+        """
+        query = self._request(
+            {"list": "search", "srsearch": title, "srlimit": 5, "srprop": ""}
+        ).get("query", {})
+
+        folded = title.casefold()
+        return next(
+            (
+                hit["title"]
+                for hit in query.get("search", [])
+                if hit["title"].casefold() == folded
+            ),
+            None,
+        )
 
     # --- Fetching ---------------------------------------------------------
 
