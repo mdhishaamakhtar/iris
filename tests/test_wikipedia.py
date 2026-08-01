@@ -107,6 +107,25 @@ def test_follows_redirects_back_to_the_requested_title(settings):
     }
 
 
+def test_follows_normalisation_before_redirects(settings):
+    """A casually-typed title is normalised first, then redirected.
+
+    Reading the two stages in the wrong order strands the title at the input,
+    the page match fails and the caller silently gets no links at all — which
+    leaves a search with a dead frontier rather than an error.
+    """
+    payload = links_payload("Shah Rukh Khan", ["Bollywood"])
+    payload["query"]["normalized"] = [
+        {"from": "shah rukh khan", "to": "Shah rukh khan"}
+    ]
+    payload["query"]["redirects"] = [{"from": "Shah rukh khan", "to": "Shah Rukh Khan"}]
+    session = FakeSession(FakeResponse(payload))
+
+    assert build(settings, session).links(["shah rukh khan"]) == {
+        "shah rukh khan": ["Bollywood"]
+    }
+
+
 def test_missing_pages_yield_no_links(settings):
     session = FakeSession(
         FakeResponse({"query": {"pages": {"-1": {"title": "X", "missing": ""}}}})
@@ -295,6 +314,21 @@ def test_reports_where_a_redirect_lands(settings):
         )
     )
     assert build(settings, session).page_status("NYC").resolved_title == "New York City"
+
+
+def test_reports_where_a_normalised_redirect_lands(settings):
+    session = FakeSession(
+        FakeResponse(
+            {
+                "query": {
+                    "normalized": [{"from": "nyc", "to": "Nyc"}],
+                    "redirects": [{"from": "Nyc", "to": "New York City"}],
+                    "pages": {"1": {"title": "New York City"}},
+                }
+            }
+        )
+    )
+    assert build(settings, session).page_status("nyc").resolved_title == "New York City"
 
 
 # --- Rate limiting --------------------------------------------------------
